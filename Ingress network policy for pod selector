@@ -25,3 +25,6 @@ spec:
     ports:
     - protocol: TCP
       port: 80
+# when you want to apply ingress network policy for a deployment in a namespace based on labels. pod labels are used in the pod selector attribute which is in ingress block .
+# Filter is applied at namespace and pod labels level
+# traffic is allowed from dev namespace, dev2 label pods to prod namespace
