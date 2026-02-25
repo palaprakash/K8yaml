@@ -1,0 +1,32 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: test-network-policy
+  namespace: prod
+spec:
+  podSelector:
+    matchLabels:
+      app: prod2
+  policyTypes:
+  - Ingress
+  #- Egress
+  ingress:
+  - from:
+    #- ipBlock:
+        #cidr: 172.17.0.0/16
+        #except:
+        #- 172.17.1.0/24
+    - namespaceSelector:
+        matchLabels:
+          name: dev
+      podSelector:
+        matchLabels:
+          app: dev2
+    ports:
+    - protocol: TCP
+      port: 80
+
+# if we want to ingress traffic to particular pods in prod namespace from particular pods from dev namespace.
+# Podselector used in spec is where we mention prod namespace pod labels
+# Podselector used in ingress block is where we mention dev namespace pod labels
+#here prod2 accepts traffic only from dev2 label pods
