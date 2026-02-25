@@ -19,7 +19,7 @@ spec:
     - namespaceSelector:
         matchLabels:
           name: dev
-    - podSelector:
+      podSelector:
         matchLabels:
           app: dev2
     ports:
