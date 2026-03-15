@@ -1,0 +1,60 @@
+## AKS Upgrade Stuck with status showing update from last 3 hours
+
+run below command first
+
+az aks show \
+--resource-group rg-ovie \
+--name ovie-prod01 \
+--query provisioningState -o tsv
+
+expected result: someting like updating
+
+az aks operation show-latest \
+--resource-group rg-ovie \ ## change rg name
+--name ovie-prod01 ## change name
+
+key info from result: message: Operation is being canceled by user
+                       status: Canceled
+
+az aks nodepool list \
+--resource-group rg-ovie \
+--cluster-name ovie-prod01 \
+-o table
+
+here result was provisioning state cancelled for user pool
+
+az aks show \
+--resource-group rg-ovie \
+--name ovie-prod01 \
+--query nodeResourceGroup \
+-o tsv
+
+to find out node resource group
+
+az vmss list \
+--resource-group <nodeResourceGroup> \
+-o table
+
+
+az vmss list-instances \
+--resource-group <nodeResourceGroup> \
+--name agentpool \
+--output table
+
+az vmss list-instances \
+--resource-group <nodeResourceGroup> \
+--name agentpool \
+--query "[].instanceView.extensions[].statuses[].message"
+
+
+kubectl run dns-test --rm -it --image=busybox --restart=Never -- sh
+
+
+az network route-table route list \
+--resource-group <rg> \
+--route-table-name <rt>
+
+az network vnet show \
+--resource-group <rg> \
+--name <vnet> \
+--query dhcpOptions.dnsServers
