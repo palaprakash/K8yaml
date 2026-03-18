@@ -1,0 +1,51 @@
+Azure VPN Tunnel Troubleshooting Guide (Route-Based VPN)
+This document provides a step-by-step troubleshooting approach for Azure VPN tunnel issues where the connection shows as 'Connected' but no data traffic is flowing.
+
+Step 1: Verify VPN Connection Status
+Navigate to Azure Portal → Virtual Network Gateway → Connections.
+Check if the status shows 'Connected'. Also verify Data In and Data Out metrics.
+Screenshot: VPN Connection Overview Page
+
+
+Step 2: Check Data Traffic Metrics
+Open the VPN connection and review metrics such as Tunnel Ingress and Egress.
+If both are 0 bytes, traffic is not flowing.
+Screenshot: Metrics Blade
+
+
+Step 3: Validate VPN Type Configuration
+Ensure both Azure and on-prem firewall use Route-Based VPN.
+Disable 'Use policy-based traffic selectors' in Azure if enabled.
+Screenshot: VPN Configuration Page
+
+
+Step 4: Remove Custom Traffic Selectors
+Navigate to VPN Connection → Configuration.
+Remove any custom traffic selectors configured.
+Screenshot: Traffic Selector Settings
+
+
+Step 5: Verify Effective Routes
+Go to Azure VM → Networking → Effective Routes.
+Ensure remote subnet routes exist with next hop as Virtual Network Gateway.
+Screenshot: Effective Routes
+
+
+Step 6: Check Network Security Groups (NSG)
+Ensure NSG rules allow traffic between Azure and on-prem subnets.
+Screenshot: NSG Rules
+
+
+Step 7: Test Connectivity from Azure VM
+Use commands like ping and tracert to test connectivity to on-prem resources.
+Screenshot: Command Output
+
+Step 8: Validate On-Prem Firewall/NAT Rules
+Check NAT rules on Cisco firewall.
+Ensure Azure subnet is allowed instead of individual IPs.
+Screenshot: Firewall NAT Rules
+
+
+Step 9: Confirm Bidirectional Traffic
+Recheck Azure VPN metrics to confirm both inbound and outbound traffic.
+Screenshot: Final Metrics View
