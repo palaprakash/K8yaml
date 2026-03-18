@@ -1,0 +1,336 @@
+# Azure VPN Troubleshooting Runbook (Step-by-Step with Actions)
+
+---
+
+## 🎯 Objective
+
+To identify and resolve intermittent connectivity issues between On-Premises and Azure VM using packet-level analysis and routing validation.
+
+---
+
+# 🔷 STEP 1: Confirm VPN Tunnel Health
+
+## 👉 What to do
+
+Check if VPN tunnel is actually stable before deep troubleshooting.
+
+## 👉 How to do
+
+### Azure Portal:
+
+1. Go to **VPN Gateway**
+2. Click **Connections**
+3. Select connection: AzureToFortigateLSPB
+
+### Verify:
+
+* Status = Connected
+* Data In/Out > 0
+
+### Azure CLI (optional):
+
+```
+az network vpn-connection show \
+--name AzureToFortigateLSPB \
+--resource-group DOMAINCONTROLLER-southeastasia
+```
+
+## ✅ Expected
+
+* Tunnel should be UP
+
+## ❗ If not
+
+* Fix VPN first (IKE/IPSec mismatch, PSK, etc.)
+
+---
+
+# 🔷 STEP 2: Perform Packet Capture (MOST IMPORTANT)
+
+## 🎯 Goal
+
+Find exactly where packets are getting dropped
+
+---
+
+## 🔹 STEP 2.1: Capture on SOURCE (User Machine)
+
+## 👉 What to do
+
+Capture outgoing RDP traffic
+
+## 👉 How to do
+
+1. Open **Wireshark**
+2. Select active network interface
+3. Start capture
+4. Apply filter:
+
+```
+tcp.port == 3389
+```
+
+5. Try RDP to Azure VM (10.2.0.11)
+
+## 👉 What to check
+
+* Look for SYN packets
+* Check if SYN-ACK is received
+
+## ✅ Expected (in issue case)
+
+* SYN sent
+* SYN retransmissions
+* No SYN-ACK
+
+## 🧠 Meaning
+
+Return traffic is NOT reaching client
+
+---
+
+## 🔹 STEP 2.2: Capture on FIREWALL (Fortigate)
+
+## 👉 What to do
+
+Verify if firewall is receiving return traffic
+
+## 👉 How to do
+
+SSH into Fortigate and run:
+
+```
+diagnose sniffer packet any "host 10.2.0.11 and port 3389" 4
+```
+
+## 👉 What to check
+
+* SYN going out
+* SYN-ACK coming back
+
+## ✅ Expected (in your issue)
+
+* SYN seen leaving firewall
+* SYN-ACK NOT seen
+
+## 🧠 Meaning
+
+Problem is beyond firewall (Azure side)
+
+---
+
+## 🔹 STEP 2.3: Capture on AZURE VM
+
+## 👉 What to do
+
+Confirm Azure VM is responding
+
+## 👉 How to do
+
+### Linux VM:
+
+```
+sudo tcpdump -i any port 3389
+```
+
+### Windows VM:
+
+* Use Wireshark or pktmon
+
+## 👉 What to check
+
+* SYN received
+* SYN-ACK sent
+
+## ✅ Expected
+
+* Both SYN and SYN-ACK visible
+
+## 🧠 Meaning
+
+Azure VM is healthy
+
+---
+
+## 🔥 STEP 2 FINAL ANALYSIS
+
+| Location | Result                     |
+| -------- | -------------------------- |
+| Client   | SYN sent, no reply         |
+| Firewall | SYN sent, no return        |
+| Azure VM | SYN received, SYN-ACK sent |
+
+## 💥 Conclusion
+
+Packet loss is happening between:
+👉 Azure VPN Gateway → Firewall
+
+---
+
+# 🔷 STEP 3: Check Local Network Gateway (LNG) Configuration
+
+## 👉 What to do
+
+Verify address spaces in all LNGs
+
+## 👉 How to do
+
+1. Go to Azure Portal
+2. Search: **Local Network Gateways**
+3. Open each LNG
+4. Check **Address Space** section
+
+---
+
+## 👉 What to look for
+
+Check if same subnet exists in multiple LNGs
+
+Example issue:
+
+```
+192.168.60.0/24 present in:
+- LocalGateway-LSPB
+- WANFG_TIME
+```
+
+---
+
+## 🧠 Why this is a problem
+
+Azure VPN Gateway routing works like:
+
+1. Receives packet
+2. Checks destination IP
+3. Matches prefix from LNG
+4. Sends to corresponding tunnel
+
+If multiple LNGs have same prefix:
+
+* Azure gets confused
+* May pick wrong tunnel
+* Or drop packet
+
+---
+
+# 🔷 STEP 4: Understand Failure Behavior
+
+## 👉 What happens internally
+
+Return packet:
+
+```
+10.2.0.11 → 192.168.60.18
+```
+
+Azure checks:
+
+* LNG A → Match
+* LNG B → Match
+
+## ❗ Result
+
+* Non-deterministic routing
+
+---
+
+## 🔁 Why issue is intermittent
+
+* Sometimes correct LNG selected → Works
+* Sometimes wrong LNG selected → Fails
+
+---
+
+# 🔷 STEP 5: Fix the Issue
+
+## 👉 What to do
+
+Remove overlapping prefix
+
+## 👉 How to do
+
+1. Go to incorrect LNG (WANFG_TIME)
+2. Click **Configuration**
+3. Remove:
+
+```
+192.168.60.0/24
+```
+
+4. Save
+
+---
+
+## ✅ Ensure
+
+* Prefix exists ONLY in correct LNG
+
+---
+
+# 🔷 STEP 6: Validate Fix
+
+## 👉 What to do
+
+Repeat packet capture
+
+## 👉 Expected result
+
+* SYN → Azure VM
+* SYN-ACK → Firewall → Client
+* Connection successful
+
+---
+
+# 🔷 STEP 7: Additional Checks (Optional but Recommended)
+
+## 🔹 Effective Routes
+
+Path:
+
+* VM → NIC → Effective Routes
+
+Check:
+
+* Route to 192.168.60.0/24
+* Next hop = VPN Gateway
+
+---
+
+## 🔹 Azure Network Watcher
+
+Use **Connection Troubleshoot**:
+
+* Source: VM
+* Destination: 192.168.60.x
+* Port: 3389
+
+---
+
+## 🔹 NSG Validation
+
+* Ensure no deny rules for RDP
+
+---
+
+# 🧠 FINAL UNDERSTANDING
+
+If you ever see:
+
+* SYN reaches destination
+* SYN-ACK does NOT return
+
+👉 Always check:
+
+* Routing
+* VPN configuration
+* Overlapping address spaces
+
+---
+
+# 📌 FINAL RCA
+
+Overlapping address space across multiple Local Network Gateways caused ambiguous route selection in Azure VPN Gateway, resulting in return traffic being misrouted or dropped.
+
+---
+
+✔ Issue resolved after removing overl
