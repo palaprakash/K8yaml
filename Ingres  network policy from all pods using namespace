@@ -6,7 +6,7 @@ metadata:
 spec:
   podSelector:
     matchLabels:
-      role: db # policy applies to these pods
+      role: db # policy applies to these pods. We are writing lables only here
   policyTypes:
   - Ingress
   #- Egress
@@ -18,7 +18,7 @@ spec:
         #- 172.17.1.0/24
     - namespaceSelector:
         matchLabels:
-          name: dev #source pods namespace name
+          name: dev #source pods namespace label
     #- podSelector:
         #matchLabels:
           #role: frontend  
