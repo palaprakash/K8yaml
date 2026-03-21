@@ -4,9 +4,9 @@ metadata:
   name: test-network-policy
   namespace: prod
 spec:
-  #podSelector:
-    #matchLabels:
-      #role: db
+  podSelector:
+    matchLabels:
+      role: db # policy applies to these pods
   policyTypes:
   - Ingress
   #- Egress
@@ -18,7 +18,7 @@ spec:
         #- 172.17.1.0/24
     - namespaceSelector:
         matchLabels:
-          name: dev
+          name: dev #source pods
     #- podSelector:
         #matchLabels:
           #role: frontend
