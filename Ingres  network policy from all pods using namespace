@@ -18,10 +18,10 @@ spec:
         #- 172.17.1.0/24
     - namespaceSelector:
         matchLabels:
-          name: dev #source pods
+          name: dev #source pods namespace name
     #- podSelector:
         #matchLabels:
-          #role: frontend
+          #role: frontend  
     ports:
     - protocol: TCP
       port: 80
